@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docket - Project Todo Manager</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            display: flex;
+            height: 100vh;
+            background: #f5f5f5;
+        }
+        .sidebar {
+            width: 300px;
+            background: white;
+            border-right: 1px solid #ddd;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .main {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        h1 { margin-bottom: 20px; color: #333; }
+        h2 { margin-bottom: 15px; color: #555; }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-primary { background: #4CAF50; color: white; }
+        .btn-secondary { background: #2196F3; color: white; }
+        .btn-danger { background: #f44336; color: white; margin-left: 5px; }
+        .btn-warning { background: #ff9800; color: white; margin-left: 5px; }
+        .project-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .project-item:hover { background: #f0f0f0; }
+        .project-item.selected { background: #e3f2fd; }
+        .project-name { font-weight: bold; margin-bottom: 5px; }
+        .project-stats { font-size: 12px; color: #666; }
+        .todo-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            margin-bottom: 8px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .todo-item.completed { opacity: 0.6; }
+        .todo-checkbox { margin-right: 12px; width: 18px; height: 18px; }
+        .todo-text { flex: 1; }
+        .todo-text.completed { text-decoration: line-through; }
+        .todo-date { font-size: 12px; color: #666; margin-right: 12px; }
+        .todo-reorder {
+            display: flex;
+            flex-direction: column;
+            margin-right: 8px;
+        }
+        .btn-reorder {
+            padding: 2px 6px;
+            font-size: 10px;
+            line-height: 1;
+            margin: 1px 0;
+            background: #9e9e9e;
+            color: white;
+        }
+        .btn-reorder:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+        .todo-item.completed .todo-reorder {
+            display: none;
+        }
+        .empty-state {
+            text-align: center;
+            color: #888;
+            margin-top: 100px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h1>Docket</h1>
+        <div class="input-group">
+            <input type="text" id="newProjectName" placeholder="New project name">
+            <button class="btn-primary" onclick="addProject()">Add Project</button>
+        </div>
+        <div id="projectList"></div>
+    </div>
+    <div class="main">
+        <div id="todoSection" style="display:none;">
+            <h2 id="projectTitle"></h2>
+            <div class="input-group">
+                <input type="text" id="newTodoDesc" placeholder="New todo description">
+                <button class="btn-secondary" onclick="addTodo()">Add Todo</button>
+                <button class="btn-warning" onclick="toggleArchive()">Archive Project</button>
+                <button class="btn-danger" onclick="deleteProject()">Delete Project</button>
+            </div>
+            <div id="todoList"></div>
+        </div>
+        <div id="emptyState" class="empty-state">
+            <p>Select a project to view todos</p>
+        </div>
+    </div>
+
+    <script>
+        let selectedProjectId = null;
+
+        async function loadProjects() {
+            const res = await fetch('/api/projects');
+            const projects = await res.json();
+            const list = document.getElementById('projectList');
+            list.innerHTML = projects.map(p => `
+                <div class="project-item ${p.id === selectedProjectId ? 'selected' : ''}"
+                     onclick="selectProject(${p.id})">
+                    <div class="project-name">${p.name}</div>
+                    <div class="project-stats">Active: ${p.total_todos - p.completed_todos} | Completed: ${p.completed_todos}</div>
+                </div>
+            `).join('');
+        }
+
+        async function addProject() {
+            const name = document.getElementById('newProjectName').value.trim();
+            if (!name) return;
+            await fetch('/api/projects', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            });
+            document.getElementById('newProjectName').value = '';
+            loadProjects();
+        }
+
+        async function selectProject(id) {
+            selectedProjectId = id;
+            loadProjects();
+            const res = await fetch(`/api/projects/${id}/todos?include_completed=true`);
+            const todos = await res.json();
+            document.getElementById('todoSection').style.display = 'block';
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('projectTitle').textContent = 'Todos';
+            const list = document.getElementById('todoList');
+            list.innerHTML = todos
+                .map((t, index) => {
+                    const isCompleted = t.completed_at;
+                    const isActive = !isCompleted;
+                    // Find first and last active todo indices
+                    const activeTodos = todos.filter(todo => !todo.completed_at);
+                    const activeIndex = activeTodos.findIndex(todo => todo.id === t.id);
+                    const isFirst = activeIndex === 0;
+                    const isLast = activeIndex === activeTodos.length - 1;
+
+                    return `
+                        <div class="todo-item ${isCompleted ? 'completed' : ''}">
+                            <input type="checkbox" class="todo-checkbox" ${isCompleted ? 'checked' : ''}
+                                   onchange="toggleTodo(${t.id})">
+                            ${isActive ? `
+                            <div class="todo-reorder">
+                                <button class="btn-reorder" onclick="moveTodo(${t.id}, 'up')" ${isFirst ? 'disabled' : ''}>▲</button>
+                                <button class="btn-reorder" onclick="moveTodo(${t.id}, 'down')" ${isLast ? 'disabled' : ''}>▼</button>
+                            </div>
+                            ` : ''}
+                            <span class="todo-text ${isCompleted ? 'completed' : ''}">${t.description}</span>
+                            <span class="todo-date">${isCompleted ? new Date(t.completed_at).toLocaleDateString() : 'Pending'}</span>
+                            <button class="btn-danger" onclick="deleteTodo(${t.id})">Delete</button>
+                        </div>
+                    `;
+                })
+                .join('');
+        }
+
+        async function addTodo() {
+            if (!selectedProjectId) return;
+            const description = document.getElementById('newTodoDesc').value.trim();
+            if (!description) return;
+            await fetch(`/api/projects/${selectedProjectId}/todos`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ description })
+            });
+            document.getElementById('newTodoDesc').value = '';
+            selectProject(selectedProjectId);
+        }
+
+        async function toggleTodo(id) {
+            await fetch(`/api/todos/${id}/toggle`, { method: 'PATCH' });
+            selectProject(selectedProjectId);
+        }
+
+        async function deleteTodo(id) {
+            if (!confirm('Delete this todo?')) return;
+            await fetch(`/api/todos/${id}`, { method: 'DELETE' });
+            selectProject(selectedProjectId);
+        }
+
+        async function toggleArchive() {
+            if (!selectedProjectId) return;
+            await fetch(`/api/projects/${selectedProjectId}/archive`, { method: 'PATCH' });
+            selectedProjectId = null;
+            document.getElementById('todoSection').style.display = 'none';
+            document.getElementById('emptyState').style.display = 'block';
+            loadProjects();
+        }
+
+        async function deleteProject() {
+            if (!selectedProjectId || !confirm('Delete this project and all its todos?')) return;
+            await fetch(`/api/projects/${selectedProjectId}`, { method: 'DELETE' });
+            selectedProjectId = null;
+            document.getElementById('todoSection').style.display = 'none';
+            document.getElementById('emptyState').style.display = 'block';
+            loadProjects();
+        }
+
+        async function moveTodo(id, direction) {
+            await fetch(`/api/todos/${id}/move`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ direction })
+            });
+            selectProject(selectedProjectId);
+        }
+
+        loadProjects();
+    </script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  docket:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - docket-data:/data
+    environment:
+      - DOCKET_PORT=3000
+      - DOCKET_DB_PATH=/data/docket.db
+    restart: unless-stopped
+
+volumes:
+  docket-data:
