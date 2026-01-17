@@ -29,18 +29,11 @@ impl Database {
             .await
             .context("Failed to connect to database")?;
 
-        // Run migrations
-        let migrations = vec![
-            include_str!("../../migrations/001_init.sql"),
-            include_str!("../../migrations/002_add_todo_position.sql"),
-        ];
-
-        for (i, migration_sql) in migrations.iter().enumerate() {
-            sqlx::query(migration_sql)
-                .execute(&pool)
-                .await
-                .with_context(|| format!("Failed to run migration {}", i + 1))?;
-        }
+        // Run schema initialization (idempotent - uses CREATE TABLE IF NOT EXISTS)
+        sqlx::query(include_str!("../../migrations/001_init.sql"))
+            .execute(&pool)
+            .await
+            .context("Failed to initialize database schema")?;
 
         Ok(Self { pool })
     }
@@ -48,11 +41,12 @@ impl Database {
     // ===== Project Operations =====
 
     /// Create a new project
-    pub async fn create_project(&self, name: &str) -> Result<Project> {
+    pub async fn create_project(&self, name: &str, description: Option<&str>) -> Result<Project> {
         let result = sqlx::query(
-            "INSERT INTO projects (name) VALUES (?) RETURNING id, name, created_at, archived_at"
+            "INSERT INTO projects (name, description) VALUES (?, ?) RETURNING id, name, description, created_at, archived_at"
         )
         .bind(name)
+        .bind(description)
         .fetch_one(&self.pool)
         .await
         .context("Failed to create project")?;
@@ -60,6 +54,7 @@ impl Database {
         Ok(Project {
             id: result.get("id"),
             name: result.get("name"),
+            description: result.get("description"),
             created_at: result.get("created_at"),
             archived_at: result.get("archived_at"),
         })
@@ -72,6 +67,7 @@ impl Database {
             SELECT
                 p.id,
                 p.name,
+                p.description,
                 p.created_at,
                 p.archived_at,
                 COUNT(t.id) as total_todos,
@@ -86,6 +82,7 @@ impl Database {
             SELECT
                 p.id,
                 p.name,
+                p.description,
                 p.created_at,
                 p.archived_at,
                 COUNT(t.id) as total_todos,
@@ -110,6 +107,7 @@ impl Database {
                     project: Project {
                         id: row.get("id"),
                         name: row.get("name"),
+                        description: row.get("description"),
                         created_at: row.get("created_at"),
                         archived_at: row.get("archived_at"),
                     },
@@ -162,6 +160,28 @@ impl Database {
         Ok(())
     }
 
+    /// Update a project's description
+    pub async fn update_project_description(&self, id: i64, description: Option<&str>) -> Result<()> {
+        sqlx::query("UPDATE projects SET description = ? WHERE id = ?")
+            .bind(description)
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .context("Failed to update project description")?;
+        Ok(())
+    }
+
+    /// Update a project's name
+    pub async fn update_project_name(&self, id: i64, name: &str) -> Result<()> {
+        sqlx::query("UPDATE projects SET name = ? WHERE id = ?")
+            .bind(name)
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .context("Failed to update project name")?;
+        Ok(())
+    }
+
     // ===== Todo Operations =====
 
     /// Get a todo by ID
@@ -188,7 +208,7 @@ impl Database {
         let new_position = max_position + 1;
 
         let result = sqlx::query(
-            "INSERT INTO todos (project_id, description, position) VALUES (?, ?, ?) RETURNING id, project_id, description, created_at, completed_at, position"
+            "INSERT INTO todos (project_id, description, position) VALUES (?, ?, ?) RETURNING id, project_id, description, details, created_at, completed_at, position"
         )
         .bind(project_id)
         .bind(description)
@@ -201,6 +221,7 @@ impl Database {
             id: result.get("id"),
             project_id: result.get("project_id"),
             description: result.get("description"),
+            details: result.get("details"),
             created_at: result.get("created_at"),
             completed_at: result.get("completed_at"),
             position: result.get("position"),
@@ -274,6 +295,28 @@ impl Database {
             .execute(&self.pool)
             .await
             .context("Failed to delete todo")?;
+        Ok(())
+    }
+
+    /// Update a todo's details
+    pub async fn update_todo_details(&self, id: i64, details: Option<&str>) -> Result<()> {
+        sqlx::query("UPDATE todos SET details = ? WHERE id = ?")
+            .bind(details)
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .context("Failed to update todo details")?;
+        Ok(())
+    }
+
+    /// Update a todo's description
+    pub async fn update_todo(&self, id: i64, description: &str) -> Result<()> {
+        sqlx::query("UPDATE todos SET description = ? WHERE id = ?")
+            .bind(description)
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .context("Failed to update todo description")?;
         Ok(())
     }
 

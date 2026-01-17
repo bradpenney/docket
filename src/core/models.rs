@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct Project {
     pub id: i64,
     pub name: String,
+    pub description: Option<String>,
     pub created_at: DateTime<Utc>,
     pub archived_at: Option<DateTime<Utc>>,
 }
@@ -23,6 +24,7 @@ pub struct Todo {
     pub id: i64,
     pub project_id: i64,
     pub description: String,
+    pub details: Option<String>,
     pub created_at: DateTime<Utc>,
     pub completed_at: Option<DateTime<Utc>>,
     pub position: i64,

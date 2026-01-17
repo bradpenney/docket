@@ -26,7 +26,39 @@ impl DocketService {
         if name.len() > 255 {
             bail!("Project name is too long (max 255 characters)");
         }
-        self.db.create_project(name).await
+        self.db.create_project(name, None).await
+    }
+
+    /// Get a project by ID
+    pub async fn get_project(&self, id: i64) -> Result<Project> {
+        self.db.get_project(id).await
+    }
+
+    /// Update a project's description
+    pub async fn update_project_description(&self, id: i64, description: Option<&str>) -> Result<()> {
+        // Verify project exists
+        self.db.get_project(id).await?;
+
+        // Trim and validate description if provided
+        let description = description.map(|d| d.trim()).filter(|d| !d.is_empty());
+
+        self.db.update_project_description(id, description).await
+    }
+
+    /// Update a project's name
+    pub async fn update_project_name(&self, id: i64, name: &str) -> Result<()> {
+        // Verify project exists
+        self.db.get_project(id).await?;
+
+        let name = name.trim();
+        if name.is_empty() {
+            bail!("Project name cannot be empty");
+        }
+        if name.len() > 255 {
+            bail!("Project name is too long (max 255 characters)");
+        }
+
+        self.db.update_project_name(id, name).await
     }
 
     /// List all active projects
@@ -103,6 +135,38 @@ impl DocketService {
     /// Delete a todo
     pub async fn delete_todo(&self, id: i64) -> Result<()> {
         self.db.delete_todo(id).await
+    }
+
+    /// Get a todo by ID
+    pub async fn get_todo(&self, id: i64) -> Result<Todo> {
+        self.db.get_todo(id).await
+    }
+
+    /// Update a todo's details
+    pub async fn update_todo_details(&self, id: i64, details: Option<&str>) -> Result<()> {
+        // Verify todo exists
+        self.db.get_todo(id).await?;
+
+        // Trim and validate details if provided
+        let details = details.map(|d| d.trim()).filter(|d| !d.is_empty());
+
+        self.db.update_todo_details(id, details).await
+    }
+
+    /// Update a todo's description
+    pub async fn update_todo(&self, id: i64, description: &str) -> Result<()> {
+        // Verify todo exists
+        self.db.get_todo(id).await?;
+
+        let description = description.trim();
+        if description.is_empty() {
+            anyhow::bail!("Todo description cannot be empty");
+        }
+        if description.len() > 500 {
+            anyhow::bail!("Todo description is too long (max 500 characters)");
+        }
+
+        self.db.update_todo(id, description).await
     }
 
     /// Move a todo up in the list (decrease position number)

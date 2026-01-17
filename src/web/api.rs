@@ -17,7 +17,27 @@ pub struct CreateProjectRequest {
 }
 
 #[derive(Deserialize)]
+pub struct UpdateProjectNameRequest {
+    pub name: String,
+}
+
+#[derive(Deserialize)]
+pub struct UpdateDescriptionRequest {
+    pub description: Option<String>,
+}
+
+#[derive(Deserialize)]
 pub struct CreateTodoRequest {
+    pub description: String,
+}
+
+#[derive(Deserialize)]
+pub struct UpdateTodoDetailsRequest {
+    pub details: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct UpdateTodoRequest {
     pub description: String,
 }
 
@@ -93,6 +113,35 @@ pub async fn unarchive_project(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// Update project description
+pub async fn update_project_description(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i64>,
+    Json(req): Json<UpdateDescriptionRequest>,
+) -> Result<StatusCode, AppError> {
+    state.service.update_project_description(id, req.description.as_deref()).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Update project name
+pub async fn update_project_name(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i64>,
+    Json(req): Json<UpdateProjectNameRequest>,
+) -> Result<StatusCode, AppError> {
+    state.service.update_project_name(id, &req.name).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Get a single project
+pub async fn get_project(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i64>,
+) -> Result<Json<crate::core::models::Project>, AppError> {
+    let project = state.service.get_project(id).await?;
+    Ok(Json(project))
+}
+
 // ===== Todo handlers =====
 
 /// List todos for a project
@@ -148,6 +197,35 @@ pub async fn move_todo(
         "down" => state.service.move_todo_down(id).await?,
         _ => return Err(AppError(anyhow::anyhow!("Invalid direction: must be 'up' or 'down'"))),
     }
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Get a single todo
+pub async fn get_todo(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i64>,
+) -> Result<Json<Todo>, AppError> {
+    let todo = state.service.get_todo(id).await?;
+    Ok(Json(todo))
+}
+
+/// Update todo details
+pub async fn update_todo_details(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i64>,
+    Json(req): Json<UpdateTodoDetailsRequest>,
+) -> Result<StatusCode, AppError> {
+    state.service.update_todo_details(id, req.details.as_deref()).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Update todo description
+pub async fn update_todo(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i64>,
+    Json(req): Json<UpdateTodoRequest>,
+) -> Result<StatusCode, AppError> {
+    state.service.update_todo(id, &req.description).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

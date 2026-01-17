@@ -1,8 +1,6 @@
 # Docket
 
-A project-based todo manager with both TUI (Terminal User Interface) and web interfaces. Built with Rust for performance and reliability.
-
-> **For developers:** See [DEVELOPMENT.md](DEVELOPMENT.md) for development notes, current status, and next steps.
+A minimal, project-based todo manager with both TUI (Terminal User Interface) and web interfaces. Built with Rust for performance and reliability.
 
 ## Features
 
@@ -154,18 +152,8 @@ cargo run -- server
 - **Core**: Business logic and data models (shared by TUI and web)
 - **Database**: SQLite with sqlx for async operations
 - **TUI**: Built with Ratatui (crossterm backend)
-- **Web**: Axum web server + Dioxus frontend
+- **Web**: Axum REST API with vanilla HTML/JS frontend
 - **Single Binary**: One executable for both modes
-
-## Roadmap
-
-- [ ] Multi-user authentication (Clerk integration)
-- [ ] Todo priorities and tags
-- [ ] Due dates and reminders
-- [ ] Export to various formats (JSON, CSV, Markdown)
-- [ ] Mobile-responsive web UI improvements
-- [ ] Project templates
-- [ ] Search and filtering
 
 ## License
 

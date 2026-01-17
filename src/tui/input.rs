@@ -12,6 +12,10 @@ pub async fn handle_input(app: &mut App) -> Result<()> {
                 InputMode::Normal => handle_normal_mode(app, key).await?,
                 InputMode::AddProject => handle_add_project_mode(app, key).await?,
                 InputMode::AddTodo => handle_add_todo_mode(app, key).await?,
+                InputMode::EditDescription => handle_edit_description_mode(app, key).await?,
+                InputMode::EditTodoDetails => handle_edit_todo_details_mode(app, key).await?,
+                InputMode::EditTodo => handle_edit_todo_mode(app, key).await?,
+                InputMode::EditProjectName => handle_edit_project_name_mode(app, key).await?,
                 InputMode::Command => handle_command_mode(app, key).await?,
             }
         }
@@ -88,15 +92,22 @@ async fn handle_normal_mode(app: &mut App, key: KeyEvent) -> Result<()> {
                 ViewMode::ProjectList | ViewMode::ArchivedProjects => {
                     app.enter_project().await?;
                 }
+                ViewMode::TodoList(_) => {
+                    app.toggle_todo_expand();
+                }
                 ViewMode::Help => app.view_mode = ViewMode::ProjectList,
-                _ => {}
             }
         }
 
         KeyCode::Esc => {
             match &app.view_mode {
                 ViewMode::TodoList(_) => {
-                    app.back_to_projects().await?;
+                    // If a todo is expanded, collapse it first
+                    if app.expanded_todo_id.is_some() {
+                        app.expanded_todo_id = None;
+                    } else {
+                        app.back_to_projects().await?;
+                    }
                 }
                 ViewMode::Help => app.view_mode = ViewMode::ProjectList,
                 ViewMode::ArchivedProjects => {
@@ -196,6 +207,26 @@ async fn handle_normal_mode(app: &mut App, key: KeyEvent) -> Result<()> {
             app.toggle_completed().await?;
         }
 
+        // Edit: todo details (if expanded) or project description (otherwise)
+        KeyCode::Char('e') => {
+            if matches!(app.view_mode, ViewMode::TodoList(_)) {
+                if app.expanded_todo_id.is_some() {
+                    app.start_edit_todo_details();
+                } else {
+                    app.start_edit_description();
+                }
+            }
+        }
+
+        // Rename item (todo or project)
+        KeyCode::Char('r') => {
+             match app.view_mode {
+                 ViewMode::TodoList(_) => app.start_edit_todo(),
+                 ViewMode::ProjectList | ViewMode::ArchivedProjects => app.start_edit_project_name(),
+                 _ => {}
+             }
+        }
+
         // Help
         KeyCode::Char('?') => app.show_help(),
 
@@ -254,6 +285,82 @@ async fn handle_add_todo_mode(app: &mut App, key: KeyEvent) -> Result<()> {
                 }
             }
             app.cancel_input();
+        }
+        KeyCode::Esc => app.cancel_input(),
+        KeyCode::Char(c) => app.input_buffer.push(c),
+        KeyCode::Backspace => {
+            app.input_buffer.pop();
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+/// Handle keys when editing project description
+async fn handle_edit_description_mode(app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Enter => {
+            if let Err(e) = app.save_description().await {
+                app.set_status(format!("Error: {}", e));
+                app.cancel_input();
+            }
+        }
+        KeyCode::Esc => app.cancel_input(),
+        KeyCode::Char(c) => app.input_buffer.push(c),
+        KeyCode::Backspace => {
+            app.input_buffer.pop();
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+/// Handle keys when editing todo details
+async fn handle_edit_todo_details_mode(app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Enter => {
+            if let Err(e) = app.save_todo_details().await {
+                app.set_status(format!("Error: {}", e));
+                app.cancel_input();
+            }
+        }
+        KeyCode::Esc => app.cancel_input(),
+        KeyCode::Char(c) => app.input_buffer.push(c),
+        KeyCode::Backspace => {
+            app.input_buffer.pop();
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+/// Handle keys when editing todo description
+async fn handle_edit_todo_mode(app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Enter => {
+            if let Err(e) = app.save_todo().await {
+                app.set_status(format!("Error: {}", e));
+                app.cancel_input();
+            }
+        }
+        KeyCode::Esc => app.cancel_input(),
+        KeyCode::Char(c) => app.input_buffer.push(c),
+        KeyCode::Backspace => {
+            app.input_buffer.pop();
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+/// Handle keys when editing project name
+async fn handle_edit_project_name_mode(app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Enter => {
+            if let Err(e) = app.save_project_name().await {
+                app.set_status(format!("Error: {}", e));
+                app.cancel_input();
+            }
         }
         KeyCode::Esc => app.cancel_input(),
         KeyCode::Char(c) => app.input_buffer.push(c),

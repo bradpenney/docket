@@ -21,8 +21,21 @@
         }
         .main {
             flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .main-content {
+            flex: 1;
             padding: 20px;
             overflow-y: auto;
+        }
+        .main-footer {
+            padding: 15px 20px;
+            background: white;
+            border-top: 1px solid #ddd;
+            display: flex;
+            gap: 10px;
         }
         h1 { margin-bottom: 20px; color: #333; }
         h2 { margin-bottom: 15px; color: #555; }
@@ -37,19 +50,19 @@
             margin-bottom: 8px;
         }
         button {
-            padding: 10px 15px;
+            padding: 6px 12px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
         }
         .btn-primary { background: #4CAF50; color: white; }
         .btn-secondary { background: #2196F3; color: white; }
-        .btn-danger { background: #f44336; color: white; margin-left: 5px; }
-        .btn-warning { background: #ff9800; color: white; margin-left: 5px; }
+        .btn-danger { background: #f44336; color: white; }
+        .btn-warning { background: #ff9800; color: white; }
         .project-item {
-            padding: 12px;
-            margin-bottom: 8px;
+            padding: 8px;
+            margin-bottom: 4px;
             border: 1px solid #ddd;
             border-radius: 4px;
             cursor: pointer;
@@ -57,22 +70,26 @@
         }
         .project-item:hover { background: #f0f0f0; }
         .project-item.selected { background: #e3f2fd; }
-        .project-name { font-weight: bold; margin-bottom: 5px; }
-        .project-stats { font-size: 12px; color: #666; }
+        .project-name { font-weight: bold; margin-bottom: 2px; font-size: 14px; }
+        .project-stats { font-size: 11px; color: #666; }
         .todo-item {
             display: flex;
             align-items: center;
-            padding: 12px;
-            margin-bottom: 8px;
+            padding: 8px;
+            margin-bottom: 4px;
             background: white;
             border: 1px solid #ddd;
             border-radius: 4px;
+            gap: 8px;
         }
         .todo-item.completed { opacity: 0.6; }
-        .todo-checkbox { margin-right: 12px; width: 18px; height: 18px; }
-        .todo-text { flex: 1; }
+        .todo-checkbox { margin-right: 4px; width: 16px; height: 16px; }
+        .todo-content { flex: 1; min-width: 0; }
+        .todo-text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .todo-text.completed { text-decoration: line-through; }
-        .todo-date { font-size: 12px; color: #666; margin-right: 12px; }
+        .todo-text a { color: #1976D2; }
+        .todo-text a:hover { text-decoration: underline; }
+        .todo-date { font-size: 11px; color: #666; white-space: nowrap; }
         .todo-reorder {
             display: flex;
             flex-direction: column;
@@ -98,35 +115,153 @@
             color: #888;
             margin-top: 100px;
         }
+        .project-description {
+            margin-bottom: 15px;
+            padding: 10px;
+            color: #666;
+            font-style: italic;
+            border-left: 3px solid #ddd;
+        }
+        .todo-details-icon {
+            cursor: pointer;
+            margin-right: 8px;
+            font-size: 14px;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+        .todo-details-icon:hover { opacity: 1; }
+        .todo-details-icon.has-details { opacity: 1; color: #1976D2; }
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal h3 { margin-bottom: 15px; color: #333; }
+        .modal-details {
+            background: #f9f9f9;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .modal-details a { color: #1976D2; }
+        .modal-details a:hover { text-decoration: underline; }
+        .modal-details.empty { color: #999; font-style: italic; }
+        .modal-textarea {
+            width: 100%;
+            height: 200px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-family: inherit;
+            resize: vertical;
+        }
+        .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; }
     </style>
 </head>
 <body>
     <div class="sidebar">
         <h1>Docket</h1>
         <div class="input-group">
-            <input type="text" id="newProjectName" placeholder="New project name">
+            <input type="text" id="newProjectName" placeholder="New project name" onkeydown="if(event.key==='Enter')addProject()">
             <button class="btn-primary" onclick="addProject()">Add Project</button>
         </div>
         <div id="projectList"></div>
     </div>
     <div class="main">
-        <div id="todoSection" style="display:none;">
-            <h2 id="projectTitle"></h2>
-            <div class="input-group">
-                <input type="text" id="newTodoDesc" placeholder="New todo description">
-                <button class="btn-secondary" onclick="addTodo()">Add Todo</button>
-                <button class="btn-warning" onclick="toggleArchive()">Archive Project</button>
-                <button class="btn-danger" onclick="deleteProject()">Delete Project</button>
+        <div class="main-content">
+            <div id="todoSection" style="display:none;">
+                <h2 id="projectTitle"></h2>
+                <div id="projectDescription" class="project-description" style="display:none;"></div>
+                <div class="input-group">
+                    <input type="text" id="newTodoDesc" placeholder="New todo description" onkeydown="if(event.key==='Enter')addTodo()">
+                    <button class="btn-secondary" onclick="addTodo()">Add Todo</button>
+                </div>
+                <div id="todoList"></div>
             </div>
-            <div id="todoList"></div>
+            <div id="emptyState" class="empty-state">
+                <p>Select a project to view todos</p>
+            </div>
         </div>
-        <div id="emptyState" class="empty-state">
-            <p>Select a project to view todos</p>
+        <div id="projectFooter" class="main-footer" style="display:none;">
+            <button class="btn-secondary" onclick="editProjectName()">Edit Name</button>
+            <button class="btn-secondary" onclick="editDescription()">Edit Description</button>
+            <button class="btn-warning" onclick="toggleArchive()">Archive Project</button>
+            <button class="btn-danger" onclick="deleteProject()">Delete Project</button>
+        </div>
+    </div>
+
+    <div id="detailsModalOverlay" class="modal-overlay" onclick="if(event.target === this) closeDetailsModal()">
+        <div class="modal">
+            <h3 id="modalTitle">Todo Details</h3>
+            <textarea id="modalTextarea" class="modal-textarea" placeholder="Enter details here..."></textarea>
+            <div class="modal-buttons">
+                <button class="btn-primary" id="modalSaveBtn">Save</button>
+                <button class="btn-secondary" onclick="closeDetailsModal()">Close</button>
+            </div>
         </div>
     </div>
 
     <script>
         let selectedProjectId = null;
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Convert URLs in text to clickable links
+        function linkify(text) {
+            const escaped = escapeHtml(text);
+            const urlPattern = /(https?:\/\/[^\s<]+)/g;
+            return escaped.replace(urlPattern, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+        }
+
+        function showDetailsModal(id, description, details) {
+            document.getElementById('modalTitle').textContent = description;
+            const textarea = document.getElementById('modalTextarea');
+            textarea.value = details || '';
+            
+            // Configure Save button
+            const saveBtn = document.getElementById('modalSaveBtn');
+            saveBtn.onclick = async () => {
+                const newDetails = textarea.value;
+                await fetch(`/api/todos/${id}/details`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ details: newDetails || null })
+                });
+                closeDetailsModal();
+                selectProject(selectedProjectId);
+            };
+
+            document.getElementById('detailsModalOverlay').classList.add('active');
+        }
+
+        function closeDetailsModal() {
+            document.getElementById('detailsModalOverlay').classList.remove('active');
+        }
 
         async function loadProjects() {
             const res = await fetch('/api/projects');
@@ -156,21 +291,43 @@
         async function selectProject(id) {
             selectedProjectId = id;
             loadProjects();
+
+            // Fetch project details
+            const projectRes = await fetch(`/api/projects/${id}`);
+            const project = await projectRes.json();
+
+            // Fetch todos
             const res = await fetch(`/api/projects/${id}/todos?include_completed=true`);
             const todos = await res.json();
+
             document.getElementById('todoSection').style.display = 'block';
             document.getElementById('emptyState').style.display = 'none';
-            document.getElementById('projectTitle').textContent = 'Todos';
+            document.getElementById('projectFooter').style.display = 'flex';
+            document.getElementById('projectTitle').textContent = project.name;
+
+            // Show description if it exists
+            const descEl = document.getElementById('projectDescription');
+            if (project.description) {
+                descEl.textContent = project.description;
+                descEl.style.display = 'block';
+            } else {
+                descEl.style.display = 'none';
+            }
             const list = document.getElementById('todoList');
             list.innerHTML = todos
                 .map((t, index) => {
                     const isCompleted = t.completed_at;
                     const isActive = !isCompleted;
+                    
                     // Find first and last active todo indices
                     const activeTodos = todos.filter(todo => !todo.completed_at);
                     const activeIndex = activeTodos.findIndex(todo => todo.id === t.id);
                     const isFirst = activeIndex === 0;
                     const isLast = activeIndex === activeTodos.length - 1;
+
+                    // Escape strings for function arguments
+                    const safeDesc = t.description.replace(/'/g, "\\'");
+                    const safeDetails = (t.details || "").replace(/'/g, "\\'").replace(/\n/g, "\\n");
 
                     return `
                         <div class="todo-item ${isCompleted ? 'completed' : ''}">
@@ -182,8 +339,17 @@
                                 <button class="btn-reorder" onclick="moveTodo(${t.id}, 'down')" ${isLast ? 'disabled' : ''}>▼</button>
                             </div>
                             ` : ''}
-                            <span class="todo-text ${isCompleted ? 'completed' : ''}">${t.description}</span>
+                            <div class="todo-content">
+                                <span class="todo-text ${isCompleted ? 'completed' : ''}" 
+                                      onclick="showDetailsModal(${t.id}, '${safeDesc}', '${safeDetails}')" 
+                                      style="cursor: pointer;">
+                                    ${linkify(t.description)}
+                                    ${t.details ? '<span class="todo-details-icon has-details" title="Has details"> 📝</span>' : ''}
+                                </span>
+                            </div>
                             <span class="todo-date">${isCompleted ? new Date(t.completed_at).toLocaleDateString() : 'Pending'}</span>
+                            <button class="btn-secondary btn-small" onclick="showDetailsModal(${t.id}, '${safeDesc}', '${safeDetails}')">Details</button>
+                            <button class="btn-warning btn-small" onclick="editTodoDescription(${t.id}, '${safeDesc}')">Edit</button>
                             <button class="btn-danger" onclick="deleteTodo(${t.id})">Delete</button>
                         </div>
                     `;
@@ -220,6 +386,7 @@
             await fetch(`/api/projects/${selectedProjectId}/archive`, { method: 'PATCH' });
             selectedProjectId = null;
             document.getElementById('todoSection').style.display = 'none';
+            document.getElementById('projectFooter').style.display = 'none';
             document.getElementById('emptyState').style.display = 'block';
             loadProjects();
         }
@@ -229,6 +396,7 @@
             await fetch(`/api/projects/${selectedProjectId}`, { method: 'DELETE' });
             selectedProjectId = null;
             document.getElementById('todoSection').style.display = 'none';
+            document.getElementById('projectFooter').style.display = 'none';
             document.getElementById('emptyState').style.display = 'block';
             loadProjects();
         }
@@ -240,6 +408,84 @@
                 body: JSON.stringify({ direction })
             });
             selectProject(selectedProjectId);
+        }
+
+        async function editDescription() {
+            if (!selectedProjectId) return;
+            const descEl = document.getElementById('projectDescription');
+            const currentDesc = descEl.style.display !== 'none' ? descEl.textContent : '';
+            
+            document.getElementById('modalTitle').textContent = "Project Description";
+            const textarea = document.getElementById('modalTextarea');
+            textarea.value = currentDesc;
+            
+            // Configure Save button
+            const saveBtn = document.getElementById('modalSaveBtn');
+            saveBtn.onclick = async () => {
+                const newDesc = textarea.value;
+                await fetch(`/api/projects/${selectedProjectId}/description`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ description: newDesc || null })
+                });
+                closeDetailsModal();
+                selectProject(selectedProjectId);
+            };
+
+            document.getElementById('detailsModalOverlay').classList.add('active');
+        }
+
+        async function editProjectName() {
+            if (!selectedProjectId) return;
+            const currentName = document.getElementById('projectTitle').textContent;
+            
+            document.getElementById('modalTitle').textContent = "Edit Project Name";
+            const textarea = document.getElementById('modalTextarea');
+            textarea.value = currentName;
+            
+            // Configure Save button
+            const saveBtn = document.getElementById('modalSaveBtn');
+            saveBtn.onclick = async () => {
+                const newName = textarea.value.trim();
+                if (!newName) {
+                    alert("Project name cannot be empty");
+                    return;
+                }
+                await fetch(`/api/projects/${selectedProjectId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName })
+                });
+                closeDetailsModal();
+                selectProject(selectedProjectId);
+            };
+
+            document.getElementById('detailsModalOverlay').classList.add('active');
+        }
+
+        async function editTodoDescription(id, currentDescription) {
+            document.getElementById('modalTitle').textContent = "Edit Todo";
+            const textarea = document.getElementById('modalTextarea');
+            textarea.value = currentDescription;
+            
+            // Configure Save button
+            const saveBtn = document.getElementById('modalSaveBtn');
+            saveBtn.onclick = async () => {
+                const newDesc = textarea.value.trim();
+                if (!newDesc) {
+                    alert("Description cannot be empty");
+                    return;
+                }
+                await fetch(`/api/todos/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ description: newDesc })
+                });
+                closeDetailsModal();
+                selectProject(selectedProjectId);
+            };
+
+            document.getElementById('detailsModalOverlay').classList.add('active');
         }
 
         loadProjects();
